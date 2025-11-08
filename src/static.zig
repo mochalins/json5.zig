@@ -82,6 +82,28 @@ pub fn parseFromSlice(
     return parseFromTokenSource(T, allocator, &scanner, options);
 }
 
+test parseFromSlice {
+    var parsed_str = try parseFromSlice(
+        []const u8,
+        std.testing.allocator,
+        "\"a\\u0020b\"",
+        .{},
+    );
+    defer parsed_str.deinit();
+    try std.testing.expectEqualSlices(u8, "a b", parsed_str.value);
+
+    const T = struct { a: i32 = -1, b: [2]u8 };
+    var parsed_struct = try parseFromSlice(
+        T,
+        std.testing.allocator,
+        "{\"b\":\"xy\"}",
+        .{},
+    );
+    defer parsed_struct.deinit();
+    try std.testing.expectEqual(@as(i32, -1), parsed_struct.value.a); // default value
+    try std.testing.expectEqualSlices(u8, "xy", parsed_struct.value.b[0..]);
+}
+
 /// Parses the json document from `s` and returns the result.
 /// Allocations made during this operation are not carefully tracked and may not be possible to individually clean up.
 /// It is recommended to use a `std.heap.ArenaAllocator` or similar.

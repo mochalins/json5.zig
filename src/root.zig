@@ -23,18 +23,6 @@ test Scanner {
     try testing.expectEqual(Token.end_of_document, try scanner.next());
 }
 
-test parseFromSlice {
-    var parsed_str = try parseFromSlice([]const u8, testing.allocator, "\"a\\u0020b\"", .{});
-    defer parsed_str.deinit();
-    try testing.expectEqualSlices(u8, "a b", parsed_str.value);
-
-    const T = struct { a: i32 = -1, b: [2]u8 };
-    var parsed_struct = try parseFromSlice(T, testing.allocator, "{\"b\":\"xy\"}", .{});
-    defer parsed_struct.deinit();
-    try testing.expectEqual(@as(i32, -1), parsed_struct.value.a); // default value
-    try testing.expectEqualSlices(u8, "xy", parsed_struct.value.b[0..]);
-}
-
 test Value {
     var parsed = try parseFromSlice(Value, testing.allocator, "{\"anything\": \"goes\"}", .{});
     defer parsed.deinit();
