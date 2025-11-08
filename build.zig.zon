@@ -1,0 +1,12 @@
+.{
+    .name = .json5,
+    .fingerprint = 0x826c99940854b2f4,
+    .version = "0.0.0",
+    .minimum_zig_version = "0.15.2",
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "LICENSE",
+    },
+}
