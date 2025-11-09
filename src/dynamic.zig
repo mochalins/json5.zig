@@ -111,6 +111,12 @@ pub const Value = union(enum) {
                                 Value{ .string = key },
                             });
                         },
+                        .allocated_identifier_name => |key| {
+                            try stack.appendSlice(&[_]Value{
+                                Value{ .object = ObjectMap.init(allocator) },
+                                Value{ .string = key },
+                            });
+                        },
                         else => unreachable,
                     }
                 },

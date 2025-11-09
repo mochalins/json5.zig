@@ -155,6 +155,22 @@ pub fn nextAllocMax(self: *@This(), allocator: Allocator, when: AllocWhen, max_v
             }
         },
 
+        .identifier_name => {
+            const token = self.next() catch |e| switch (e) {
+                error.BufferUnderrun => unreachable,
+                else => |err| return err,
+            };
+
+            if (when == .alloc_if_needed) {
+                return Token{ .identifier_name = token.identifier_name };
+            } else {
+                return Token{ .allocated_identifier_name = try allocator.dupe(
+                    u8,
+                    token.identifier_name,
+                ) };
+            }
+        },
+
         // Simple tokens never alloc.
         .object_begin,
         .object_end,
@@ -230,6 +246,8 @@ pub fn allocNextIntoArrayListMax(self: *@This(), value_list: *std.array_list.Man
             .object_end,
             .array_begin,
             .array_end,
+            .identifier_name,
+            .allocated_identifier_name,
             .true,
             .false,
             .null,
@@ -261,7 +279,7 @@ pub fn skipValue(self: *@This()) SkipError!void {
                 else => |err| return err,
             };
         },
-        .number, .string => {
+        .identifier_name, .number, .string => {
             while (true) {
                 switch (self.next() catch |e| switch (e) {
                     error.BufferUnderrun => unreachable,
@@ -275,7 +293,7 @@ pub fn skipValue(self: *@This()) SkipError!void {
                     .partial_string_escaped_4,
                     => continue,
 
-                    .number, .string => break,
+                    .identifier_name, .number, .string => break,
 
                     else => unreachable,
                 }
@@ -431,7 +449,50 @@ pub fn next(self: *@This()) NextError!Token {
                 }
             },
 
-            .object_start => {
+            .identifier_name => {
+                ident_loop: while (self.cursor < self.input.len) {
+                    const c = self.input[self.cursor];
+                    switch (c) {
+                        ' ', '\t', '\r', '\n' => {
+                            const result: Token = .{
+                                .identifier_name = self.takeValueSlice(),
+                            };
+                            self.cursor += 1;
+                            self.string_is_object_key = true;
+                            self.state = .post_value;
+                            return result;
+                        },
+                        ':' => {
+                            const result: Token = .{
+                                .identifier_name = self.takeValueSlice(),
+                            };
+                            self.cursor += 1;
+                            self.state = .value;
+                            return result;
+                        },
+                        // TODO: Allow all unicode "letters" (Lu, Ll, Lt, Lm,
+                        // Lo, Nl), unicode digits (Nd), unicode combining
+                        // marks (Mn, Mc), unicode connector punctuation (Pc),
+                        // and unicode escape sequences.
+                        '_',
+                        '$',
+                        'a'...'z',
+                        'A'...'Z',
+                        '0'...'9',
+                        => {
+                            self.cursor += 1;
+                            continue :ident_loop;
+                        },
+                        else => return error.SyntaxError,
+                    }
+                }
+                if (self.is_end_of_input) return .end_of_document;
+                const slice = self.takeValueSlice();
+                if (slice.len > 0) return Token{ .identifier_name = slice };
+                return error.BufferUnderrun;
+            },
+
+            .object_start, .object_post_comma => {
                 switch (try self.skipWhitespaceExpectByte()) {
                     '"' => {
                         self.cursor += 1;
@@ -446,16 +507,12 @@ pub fn next(self: *@This()) NextError!Token {
                         self.state = .post_value;
                         return .object_end;
                     },
-                    else => return error.SyntaxError,
-                }
-            },
-            .object_post_comma => {
-                switch (try self.skipWhitespaceExpectByte()) {
-                    '"' => {
-                        self.cursor += 1;
+                    // TODO: Allow all unicode "letters" (Lu, Ll, Lt, Lm, Lo,
+                    // Nl) and unicode escape sequences.
+                    '_', '$', 'a'...'z', 'A'...'Z' => {
                         self.value_start = self.cursor;
-                        self.state = .string;
-                        self.string_is_object_key = true;
+                        self.cursor += 1;
+                        self.state = .identifier_name;
                         continue :state_loop;
                     },
                     else => return error.SyntaxError,
@@ -1140,16 +1197,13 @@ pub fn peekNextTokenType(self: *@This()) PeekError!TokenType {
                 }
             },
 
-            .object_start => {
+            .object_post_comma, .object_start => {
                 switch (try self.skipWhitespaceExpectByte()) {
                     '"' => return .string,
                     '}' => return .object_end,
-                    else => return error.SyntaxError,
-                }
-            },
-            .object_post_comma => {
-                switch (try self.skipWhitespaceExpectByte()) {
-                    '"' => return .string,
+                    // TODO: Allow all unicode "letters" (Lu, Ll, Lt, Lm, Lo,
+                    // Nl) and unicode escape sequences.
+                    '_', '$', 'a'...'z', 'A'...'Z' => return .identifier_name,
                     else => return error.SyntaxError,
                 }
             },
@@ -1163,6 +1217,8 @@ pub fn peekNextTokenType(self: *@This()) PeekError!TokenType {
                     },
                 }
             },
+
+            .identifier_name => return .identifier_name,
 
             .number_minus,
             .number_leading_zero,
@@ -1218,6 +1274,8 @@ pub fn peekNextTokenType(self: *@This()) PeekError!TokenType {
 const State = enum {
     value,
     post_value,
+
+    identifier_name,
 
     object_start,
     object_post_comma,
@@ -1506,6 +1564,9 @@ pub const Token = union(enum) {
     array_begin,
     array_end,
 
+    identifier_name: []const u8,
+    allocated_identifier_name: []u8,
+
     true,
     false,
     null,
@@ -1531,6 +1592,7 @@ pub const TokenType = enum {
     object_end,
     array_begin,
     array_end,
+    identifier_name,
     true,
     false,
     null,

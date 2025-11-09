@@ -24,7 +24,7 @@ test Scanner {
 }
 
 test Value {
-    var parsed = try parseFromSlice(Value, testing.allocator, "{\"anything\": \"goes\"}", .{});
+    var parsed = try parseFromSlice(Value, testing.allocator, "{anything: \"goes\"}", .{});
     defer parsed.deinit();
     try testing.expectEqualSlices(u8, "goes", parsed.value.object.get("anything").?.string);
 }
