@@ -30,7 +30,7 @@ test Value {
 }
 
 test Stringify {
-    var out: std.io.Writer.Allocating = .init(testing.allocator);
+    var out: std.Io.Writer.Allocating = .init(testing.allocator);
     var write_stream: Stringify = .{
         .writer = &out.writer,
         .options = .{ .whitespace = .indent_2 },

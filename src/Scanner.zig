@@ -354,6 +354,18 @@ pub fn next(self: *@This()) NextError!Token {
                         self.state = .array_start;
                         return .array_begin;
                     },
+                    '}' => {
+                        if (self.stack.pop() != OBJECT_MODE) return error.SyntaxError;
+                        self.cursor += 1;
+                        self.state = .post_value;
+                        return .object_end;
+                    },
+                    ']' => {
+                        if (self.stack.pop() != ARRAY_MODE) return error.SyntaxError;
+                        self.cursor += 1;
+                        self.state = .post_value;
+                        return .array_end;
+                    },
 
                     // String
                     '"' => {
@@ -1153,6 +1165,8 @@ pub fn peekNextTokenType(self: *@This()) PeekError!TokenType {
                 switch (try self.skipWhitespaceExpectByte()) {
                     '{' => return .object_begin,
                     '[' => return .array_begin,
+                    '}' => return .object_end,
+                    ']' => return .array_end,
                     '"' => return .string,
                     '-', '0'...'9' => return .number,
                     't' => return .true,
