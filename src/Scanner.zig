@@ -1700,6 +1700,19 @@ pub const Reader = struct {
                 }
             },
 
+            .identifier_name => {
+                const token = try self.next();
+
+                if (when == .alloc_if_needed) {
+                    return Token{ .identifier_name = token.identifier_name };
+                } else {
+                    return Token{ .allocated_identifier_name = try allocator.dupe(
+                        u8,
+                        token.identifier_name,
+                    ) };
+                }
+            },
+
             // Simple tokens never alloc.
             .object_begin,
             .object_end,
@@ -1736,7 +1749,7 @@ pub const Reader = struct {
             .object_begin, .array_begin => {
                 try self.skipUntilStackHeight(self.stackHeight());
             },
-            .number, .string => {
+            .identifier_name, .number, .string => {
                 while (true) {
                     switch (try self.next()) {
                         .partial_number,
