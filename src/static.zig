@@ -361,11 +361,12 @@ pub fn innerParse(
             while (true) {
                 var name_token: ?Token = try source.nextAllocMax(allocator, .alloc_if_needed, options.max_value_len.?);
                 const field_name = switch (name_token.?) {
-                    inline .string, .allocated_string => |slice| slice,
+                    inline .identifier_name, .string, .allocated_string => |slice| slice,
                     .object_end => { // No more fields.
                         break;
                     },
-                    else => {
+                    else => |tok| {
+                        std.log.debug("{s}", .{@tagName(tok)});
                         return error.UnexpectedToken;
                     },
                 };
