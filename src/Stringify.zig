@@ -102,6 +102,9 @@ pub fn endArray(self: *Stringify) Error!void {
     switch (self.next_punctuation) {
         .none => {},
         .comma => {
+            if (self.options.emit_trailing_commas) {
+                try self.writer.writeByte(',');
+            }
             try self.indent();
         },
         .the_beginning, .colon => unreachable,
@@ -116,6 +119,9 @@ pub fn endObject(self: *Stringify) Error!void {
     switch (self.next_punctuation) {
         .none => {},
         .comma => {
+            if (self.options.emit_trailing_commas) {
+                try self.writer.writeByte(',');
+            }
             try self.indent();
         },
         .the_beginning, .colon => unreachable,
@@ -572,6 +578,10 @@ pub const Options = struct {
 
     /// When true, object field keys are written in quotes.
     emit_quoted_keys: bool = false,
+
+    /// When true, the last field/item in an object/array is suffixed with a
+    /// trailing comma.
+    emit_trailing_commas: bool = true,
 };
 
 /// Writes the given value to the `Writer` writer.
